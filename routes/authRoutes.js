@@ -1,17 +1,19 @@
-// routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
 const passport = require('passport');
+const jwt = require('jsonwebtoken');
 const { register, login } = require('../controllers/authController');
 
-// Register a new user
+// Register and login routes
 router.post('/register', register);
-
-// Log in a user
 router.post('/login', login);
 
-// Route to initiate Google login
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+// Initiate Google login with a role query parameter
+router.get('/google', (req, res, next) => {
+  const role = req.query.role || 'User'; // Default to 'User' if no role is specified
+  req.session.selectedRole = role;
+  next();
+}, passport.authenticate('google', { scope: ['profile', 'email'] }));
 
 // Google OAuth callback
 router.get(
@@ -19,9 +21,11 @@ router.get(
   passport.authenticate('google', { failureRedirect: '/login', session: false }),
   (req, res) => {
     const user = req.user;
+    user.role = req.session.selectedRole || 'User';
+    user.save(); // Save the updated role to the database
 
     const payload = {
-      id: user.id,
+      id: user.userId,
       name: user.name,
       email: user.email,
       role: user.role,
@@ -39,11 +43,4 @@ router.get(
   }
 );
 
-// Route to logout
-router.get('/logout', (req, res) => {
-  req.logout();
-  res.redirect('/');
-});
-
 module.exports = router;
-
