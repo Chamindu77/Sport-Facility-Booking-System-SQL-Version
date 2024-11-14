@@ -1,91 +1,106 @@
-const mongoose = require('mongoose');
 
-const CoachProfileSchema = new mongoose.Schema({
+
+// models/CoachProfile.js
+const { DataTypes } = require('sequelize');
+const { mysqlSequelize, postgresSequelize } = require('../config/db');
+
+// Choose the correct Sequelize instance based on the DB_TYPE environment variable
+const sequelize = process.env.DB_TYPE === 'mysql' ? mysqlSequelize : postgresSequelize;
+
+const CoachProfile = sequelize.define('CoachProfile', {
+  coachProfileId: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Users', // Update this to match the explicit table name
+      key: 'userId'
+    },
+    onDelete: 'CASCADE'
   },
   coachName: {
-    type: String,
-    required: true
+    type: DataTypes.STRING,
+    allowNull: false
   },
   coachLevel: {
-    type: String,
-    required: true,
-    enum: ['Professional Level', 'Intermediate Level', 'Beginner Level']
+    type: DataTypes.ENUM('Professional Level', 'Intermediate Level', 'Beginner Level'),
+    allowNull: false
   },
   coachingSport: {
-    type: String,
-    required: true
+    type: DataTypes.STRING,
+    allowNull: false
   },
   coachPrice: {
-    individualSessionPrice: {
-      type: Number,
-      required: false
-    },
-    groupSessionPrice: {
-      type: Number,
-      required: false
+    type: DataTypes.JSON,
+    allowNull: true,
+    validate: {
+      hasRequiredFields(value) {
+        if (
+          typeof value !== 'object' ||
+          !value.hasOwnProperty('individualSessionPrice') ||
+          !value.hasOwnProperty('groupSessionPrice')
+        ) {
+          throw new Error('coachPrice must include both individualSessionPrice and groupSessionPrice');
+        }
+      }
     }
   },
   availableTimeSlots: {
-    type: [{
-      date: {
-        type: Date,
-        required: true
-      },
-      timeSlot: {
-        type: String,
-        required: true
-      }
-    }],
+    type: DataTypes.JSON,
+    allowNull: true,
     validate: {
-      validator: function(value) {
+      isWithinNext7Days(value) {
         const today = new Date();
         const sevenDaysFromToday = new Date(today);
         sevenDaysFromToday.setDate(today.getDate() + 7);
-
-        return value.every(slot => {
-          const slotDate = new Date(slot.date);
-          return slotDate >= today && slotDate <= sevenDaysFromToday;
-        });
-      },
-      message: 'Time slots must be within the next 7 days.'
-    },
-    required: false
+        if (
+          !Array.isArray(value) ||
+          value.some(slot => {
+            const slotDate = new Date(slot.date);
+            return slotDate < today || slotDate > sevenDaysFromToday;
+          })
+        ) {
+          throw new Error('Time slots must be within the next 7 days.');
+        }
+      }
+    }
   },
   experience: {
-    type: String,
-    required: true
+    type: DataTypes.STRING,
+    allowNull: false
   },
   offerSessions: {
-    type: [String],
-    enum: ['Individual Session', 'Group Session'],
-    required: false
+    type: DataTypes.JSON,
+    allowNull: true,
+    validate: {
+      isValidArray(value) {
+        const validOptions = ['Individual Session', 'Group Session'];
+        if (!Array.isArray(value) || !value.every(item => validOptions.includes(item))) {
+          throw new Error('offerSessions must contain valid session types');
+        }
+      }
+    }
   },
   sessionDescription: {
-    type: String,
-    required: true
+    type: DataTypes.STRING,
+    allowNull: false
   },
   isActive: {
-    type: Boolean,
-    default: true
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   },
   image: {
-    type: String,
-    default: null,
-    required: false
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: null
   }
+}, {
+  timestamps: true,
+  tableName: 'CoachProfiles'
 });
 
-module.exports = mongoose.model('CoachProfile', CoachProfileSchema);
-
+module.exports = CoachProfile;

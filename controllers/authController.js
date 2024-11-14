@@ -14,7 +14,7 @@ const registerSchema = Joi.object({
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),
-  role: Joi.string().valid('User', 'Coach', 'Admin').required() 
+  //role: Joi.string().valid('User', 'Coach', 'Admin').required() 
 });
 
 exports.register = async (req, res) => {
@@ -66,9 +66,9 @@ exports.login = async (req, res) => {
       return res.status(400).json({ msg: 'User not found' });
     }
 
-    if (user.role !== role) {
-      return res.status(400).json({ msg: 'Role mismatch' });
-    }
+    // if (user.role !== role) {
+    //   return res.status(400).json({ msg: 'Role mismatch' });
+    // }
 
     if (!user.isActive) {
       return res.status(400).json({ msg: 'Account is deactivated' });
